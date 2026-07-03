@@ -21,12 +21,16 @@ Kotlin + AndroidX + Room + Coroutines + AlarmManager
 
 **最小 SDK 26 (Android 8)**
 
-## 必须权限（安装后手动开启）
-- 悬浮窗
-- 通知监听服务（凹凸钉）
-- 截屏权限（录屏）
+## 必须权限（App启动时引导 + 手动）
+- 悬浮窗 (Overlay)
+- 通知权限 (Android 13+)
+- 精确闹钟 (Android 12+)
+- 通知监听服务（手动在系统设置 > 特殊应用权限 > 通知使用权 开启「凹凸钉」）
+- 截屏权限 (MediaProjection, App内引导授权)
 - 忽略电池优化
-- 精确闹钟权限（Android 12+）
+- WAKE_LOCK 等
+
+QQ命令依赖通知监听。
 
 ## 使用流程
 1. 开启所有权限 + 目标 App（钉钉等）内部“极速打卡”

@@ -10,6 +10,7 @@ import android.os.Looper
 import android.util.Log
 import com.aotuding.ding.data.repository.TaskRepository
 import com.aotuding.ding.receiver.AlarmReceiver
+import com.aotuding.ding.service.CountdownService
 import kotlinx.coroutines.runBlocking
 import java.util.*
 
@@ -127,9 +128,12 @@ object TaskScheduler {
         val target = ConfigManager.getTargetApp(context)
         PunchExecutor.launchTargetApp(context, target)
 
-        // Start countdown overlay etc.
-        // In real: start CountdownService with timeout from ConfigManager
+        // Start countdown service for timeout
+        val countdownIntent = Intent(context, CountdownService::class.java)
+        context.startService(countdownIntent)
 
         StateProvider.TaskState.currentStatus = "执行中: $time"
+
+        MessageSender.sendFeedback("任务执行", "已启动目标App打卡，超时 ${ConfigManager.getTimeoutSeconds(context)}s")
     }
 }

@@ -21,6 +21,12 @@ class FloatingWindowService : Service() {
     companion object {
         var isRunning = false
             private set
+
+        // Simple static update for demo (in production use bound service or LocalBroadcast)
+        fun updateCountdown(seconds: Int, status: String) {
+            // This is placeholder; actual update happens inside service instance
+            // For full impl, bind or use broadcast receiver inside FloatingWindowService
+        }
     }
 
     override fun onCreate() {
@@ -63,6 +69,17 @@ class FloatingWindowService : Service() {
 
     fun show() {
         floatingView?.visibility = View.VISIBLE
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.let {
+            val secs = it.getIntExtra("seconds", -1)
+            val status = it.getStringExtra("status") ?: "执行中"
+            if (secs >= 0) {
+                updateCountdown(secs, status)
+            }
+        }
+        return START_STICKY
     }
 
     override fun onDestroy() {

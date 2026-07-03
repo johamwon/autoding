@@ -10,11 +10,13 @@ import com.aotuding.ding.core.StateProvider
 import com.aotuding.ding.core.TaskScheduler
 import com.aotuding.ding.core.model.Action
 import com.aotuding.ding.data.repository.TaskRepository
+import com.aotuding.ding.service.CaptureService
 import com.aotuding.ding.utils.MessageSender
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class NotificationMonitorService : NotificationListenerService() {
 
@@ -71,23 +73,31 @@ class NotificationMonitorService : NotificationListenerService() {
             try {
                 when (action) {
                     is Action.AddTask -> {
-                        TaskRepository.addTask(action.time)
-                        MessageSender.sendFeedback("配置成功", "已添加任务: ${action.time}")
+                        scope.launch {
+                            TaskRepository.addTask(action.time)
+                            MessageSender.sendFeedback("配置成功", "已添加任务: ${action.time}")
+                        }
                     }
                     is Action.ModifyTask -> {
-                        TaskRepository.updateTask(action.index, action.time)
-                        MessageSender.sendFeedback("配置成功", "修改任务 ${action.index + 1} 为 ${action.time}")
+                        scope.launch {
+                            TaskRepository.updateTask(action.index, action.time)
+                            MessageSender.sendFeedback("配置成功", "修改任务 ${action.index + 1} 为 ${action.time}")
+                        }
                     }
                     is Action.DeleteTask -> {
-                        TaskRepository.deleteTask(action.index)
-                        MessageSender.sendFeedback("配置成功", "删除任务 ${action.index + 1}")
+                        scope.launch {
+                            TaskRepository.deleteTask(action.index)
+                            MessageSender.sendFeedback("配置成功", "删除任务 ${action.index + 1}")
+                        }
                     }
                     is Action.ClearTasks -> {
-                        TaskRepository.clearAll()
-                        MessageSender.sendFeedback("配置成功", "已清空所有任务")
+                        scope.launch {
+                            TaskRepository.clearAll()
+                            MessageSender.sendFeedback("配置成功", "已清空所有任务")
+                        }
                     }
                     is Action.ListTasks -> {
-                        val tasks = TaskRepository.getAllTasks()
+                        val tasks = withContext(Dispatchers.IO) { TaskRepository.getAllTasks() }
                         val list = tasks.joinToString("\n") { "${it.id}: ${it.time}" }
                         MessageSender.sendFeedback("任务列表", list.ifEmpty { "无任务" })
                     }
@@ -149,8 +159,11 @@ class NotificationMonitorService : NotificationListenerService() {
                         MessageSender.sendFeedback("指令", "伪灭屏已关闭")
                     }
                     is Action.CaptureScreen -> {
-                        CaptureService.requestCapture()
-                        MessageSender.sendFeedback("指令", "截屏请求已发送")
+                        val serviceIntent = Intent(this@NotificationMonitorService, CaptureService::class.java)
+                        startService(serviceIntent)
+                        // Trigger actual capture (projection must be granted via App UI long press add button)
+                        CaptureService.captureIfReady()
+                        MessageSender.sendFeedback("指令", "截屏请求已发送 (需先在App内长按添加按钮授权)")
                     }
 
                     is Action.QueryStatus -> {

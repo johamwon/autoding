@@ -44,8 +44,7 @@ class ForegroundService : Service() {
         return NotificationCompat.Builder(this, Constants.CHANNEL_ID_FOREGROUND)
             .setContentTitle("凹凸钉")
             .setContentText("后台运行中")
-            // Use system icon as fallback since mipmap resources may be missing in this skeleton
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
             .build()
     }
