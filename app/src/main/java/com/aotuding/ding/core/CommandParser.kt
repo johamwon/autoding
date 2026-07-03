@@ -17,11 +17,11 @@ object CommandParser {
     fun parse(message: String): Action? {
         val text = message.trim().lowercase()
 
-        // 忽略语气词
+        // 忽略部分语气词，但保留“立即”用于特殊处理
+        // Handle prefix conflicts like original (check longer matches first)
         val clean = text.replace("请", "")
             .replace("帮我", "")
             .replace("现在", "")
-            .replace("立即", "")
             .trim()
 
         return when {
@@ -39,8 +39,11 @@ object CommandParser {
             clean.contains("重置时间") -> parseResetTime(clean)
             clean.contains("节假日") -> parseHoliday(clean)
             clean.contains("通知渠道") || clean.contains("webhook") -> parseNotification(clean)
+            clean.contains("结果来源") -> parseResultSource(clean)
+            clean.contains("导出") && (clean.contains("配置") || clean.contains("任务")) -> Action.ExportConfig
 
             // 控制
+            (clean.contains("立即") || clean.contains("马上") || clean.contains("现在") || clean.contains("马上")) && (clean.contains("执行") || clean.contains("打卡") || clean.contains("启动")) -> Action.ExecuteTaskImmediate
             clean.contains("执行任务") || clean.contains("打卡") -> Action.ExecuteTask
             clean.contains("终止任务") || clean.contains("停止任务") -> Action.StopTask
             clean.contains("开启循环") || clean.contains("开始循环") -> Action.EnableLoop
@@ -116,6 +119,11 @@ object CommandParser {
         } else null
         val channel = if (text.contains("企业微信")) 0 else 1
         return Action.SetNotification(channel, webhook)
+    }
+
+    private fun parseResultSource(text: String): Action {
+        val source = if (text.contains("截屏") || text.contains("1")) 1 else 0
+        return Action.SetResultSource(source)
     }
 
     private fun parseStateQuery(text: String): Action {

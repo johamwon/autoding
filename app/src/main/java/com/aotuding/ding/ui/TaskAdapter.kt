@@ -11,6 +11,17 @@ import com.aotuding.ding.data.db.TaskEntity
 class TaskAdapter(private var tasks: List<TaskEntity>) :
     RecyclerView.Adapter<TaskAdapter.VH>() {
 
+    interface OnTaskClickListener {
+        fun onTaskClick(task: TaskEntity, position: Int)
+        fun onTaskLongClick(task: TaskEntity, position: Int)
+    }
+
+    private var listener: OnTaskClickListener? = null
+
+    fun setOnTaskClickListener(l: OnTaskClickListener) {
+        listener = l
+    }
+
     class VH(view: View) : RecyclerView.ViewHolder(view) {
         val tv: TextView = view.findViewById(android.R.id.text1)
     }
@@ -22,7 +33,15 @@ class TaskAdapter(private var tasks: List<TaskEntity>) :
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        holder.tv.text = "${position + 1}. ${tasks[position].time}"
+        val task = tasks[position]
+        holder.tv.text = "${position + 1}. ${task.time}"
+        holder.itemView.setOnClickListener {
+            listener?.onTaskClick(task, position)
+        }
+        holder.itemView.setOnLongClickListener {
+            listener?.onTaskLongClick(task, position)
+            true
+        }
     }
 
     override fun getItemCount(): Int = tasks.size

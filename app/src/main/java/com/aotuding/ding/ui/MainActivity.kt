@@ -16,9 +16,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.aotuding.ding.R
 import com.aotuding.ding.core.ConfigManager
 import com.aotuding.ding.core.TaskScheduler
+import com.aotuding.ding.core.model.TargetApp
 import com.aotuding.ding.data.repository.TaskRepository
 import com.aotuding.ding.databinding.ActivityMainBinding
+import com.aotuding.ding.core.PunchExecutor
 import com.aotuding.ding.service.CaptureService
+import com.aotuding.ding.service.CountdownService
 import com.aotuding.ding.service.ForegroundService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,16 +45,34 @@ class MainActivity : AppCompatActivity() {
         refreshTasks()
 
         checkAndRequestPermissions()
-
-        // Show current target
-        val target = ConfigManager.getTargetApp(this)
-        binding.tvStatus.text = "目标: ${target.displayName} | 就绪\n请通过QQ消息配置任务"
+        binding.tvStatus.text = "凹凸钉已启动\n使用上方按钮调整配置，或用QQ发送指令"
+        if (!isNotificationListenerEnabled()) {
+            binding.tvStatus.append("\n【重要】监听未开启：请去系统设置 > 特殊应用权限 > 通知使用权 开启「凹凸钉」")
+        }
+        refreshConfigDisplay()
     }
 
     private fun setupRecycler() {
         adapter = TaskAdapter(emptyList())
         binding.rvTasks.layoutManager = LinearLayoutManager(this)
         binding.rvTasks.adapter = adapter
+
+        adapter.setOnTaskClickListener(object : TaskAdapter.OnTaskClickListener {
+            override fun onTaskClick(task: com.aotuding.ding.data.db.TaskEntity, position: Int) {
+                // Edit task with time picker
+                showTimePickerDialog(task, position)
+            }
+
+            override fun onTaskLongClick(task: com.aotuding.ding.data.db.TaskEntity, position: Int) {
+                // Delete
+                scope.launch {
+                    TaskRepository.deleteTask(task.id)
+                    refreshTasks()
+                    refreshConfigDisplay()
+                    Toast.makeText(this@MainActivity, "已删除任务 ${task.time}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
     }
 
     private fun setupButtons() {
@@ -68,20 +89,79 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnAddTask.setOnClickListener {
-            // Simple demo add
-            scope.launch {
-                TaskRepository.addTask("08:50:00")
-                refreshTasks()
-                Toast.makeText(this@MainActivity, "已添加 08:50:00 (用QQ消息可更灵活)", Toast.LENGTH_SHORT).show()
-            }
+            showTimePickerDialog()  // Use time picker like original
         }
 
-        // Long press to request screenshot permission
+        // Long press for screenshot permission
         binding.btnAddTask.setOnLongClickListener {
             requestMediaProjection()
             Toast.makeText(this, "请授权截屏权限", Toast.LENGTH_SHORT).show()
             true
         }
+
+        // New config buttons
+        binding.btnSwitchTarget?.setOnClickListener {
+            cycleTargetApp()
+        }
+
+        binding.btnToggleRandom?.setOnClickListener {
+            val enabled = !ConfigManager.isRandomEnabled(this)
+            ConfigManager.setRandomEnabled(this, enabled)
+            refreshConfigDisplay()
+            Toast.makeText(this, "随机: ${if (enabled) "开启" else "关闭"}", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnSetTimeout?.setOnClickListener {
+            val current = ConfigManager.getTimeoutSeconds(this)
+            val newTimeout = if (current >= 60) 30 else current + 15
+            ConfigManager.setTimeoutSeconds(this, newTimeout)
+            refreshConfigDisplay()
+            Toast.makeText(this, "超时设为 ${newTimeout}s", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnToggleHoliday?.setOnClickListener {
+            val enabled = !ConfigManager.isSkipHoliday(this)
+            ConfigManager.setSkipHoliday(this, enabled)
+            refreshConfigDisplay()
+            Toast.makeText(this, "节假日跳过: ${if (enabled) "开启" else "关闭"}", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnResultSource?.setOnClickListener {
+            val current = ConfigManager.getResultSource(this)
+            val next = if (current == 0) 1 else 0
+            ConfigManager.setResultSource(this, next)
+            refreshConfigDisplay()
+            Toast.makeText(this, "结果来源: ${if (next == 0) "通知监听" else "截屏服务"}", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnManualExecute?.setOnClickListener {
+            // Manual immediate execute for testing
+            val target = ConfigManager.getTargetApp(this)
+            PunchExecutor.launchTargetApp(this, target)
+            val countdownIntent = Intent(this, CountdownService::class.java)
+            startService(countdownIntent)
+            binding.tvStatus.text = "手动执行中... 请查看悬浮窗"
+            Toast.makeText(this, "已手动启动打卡 (目标: ${target.displayName})", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnRequestPerms?.setOnClickListener {
+            checkAndRequestPermissions()
+            val listenerOk = isNotificationListenerEnabled()
+            binding.tvStatus.append("\n监听状态: ${if (listenerOk) "已开启" else "未开启 (必须手动在系统设置开启)"}")
+        }
+    }
+
+    private fun cycleTargetApp() {
+        val current = ConfigManager.getTargetApp(this)
+        val next = when (current) {
+            TargetApp.DINGDING -> TargetApp.FEISHU
+            TargetApp.FEISHU -> TargetApp.WEWORK
+            TargetApp.WEWORK -> TargetApp.M3
+            TargetApp.M3 -> TargetApp.DINGDING
+        }
+        ConfigManager.setTargetApp(this, next)
+        refreshConfigDisplay()
+        Toast.makeText(this, "目标切换为: ${next.displayName}", Toast.LENGTH_SHORT).show()
     }
 
     private fun startServices() {
@@ -132,11 +212,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Notification Listener - must be enabled manually in system settings
-        if (!isNotificationListenerEnabled()) {
-            binding.tvStatus.append("\n重要：请在系统设置 > 特殊应用权限 > 通知使用权 中开启「凹凸钉」")
-            // Optionally open the settings
-            // startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
+        // (status updated after)
     }
 
     private fun isNotificationListenerEnabled(): Boolean {
@@ -150,6 +226,52 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshTasks()
+        refreshConfigDisplay()
+    }
+
+    private fun refreshConfigDisplay() {
+        val target = ConfigManager.getTargetApp(this)
+        val randomEnabled = ConfigManager.isRandomEnabled(this)
+        val randomRange = ConfigManager.getRandomRange(this)
+        val timeout = ConfigManager.getTimeoutSeconds(this)
+        val skipHoliday = ConfigManager.isSkipHoliday(this)
+        val resultSource = ConfigManager.getResultSource(this)
+
+        val configText = "目标: ${target.displayName} | 随机: ${if (randomEnabled) "开(${randomRange}min)" else "关"} | 超时: ${timeout}s | 节假日跳过: ${if (skipHoliday) "开" else "关"} | 结果来源: ${if (resultSource == 0) "通知" else "截屏"}"
+        binding.tvConfig?.text = configText
+    }
+
+    private fun showTimePickerDialog(existingTask: com.aotuding.ding.data.db.TaskEntity? = null, position: Int = -1) {
+        val calendar = java.util.Calendar.getInstance()
+        if (existingTask != null) {
+            val parts = existingTask.time.split(":")
+            if (parts.size >= 2) {
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, parts[0].toInt())
+                calendar.set(java.util.Calendar.MINUTE, parts[1].toInt())
+            }
+        }
+
+        val timePicker = android.app.TimePickerDialog(
+            this,
+            { _, hour, minute ->
+                val timeStr = String.format("%02d:%02d:00", hour, minute)
+                scope.launch {
+                    if (existingTask != null) {
+                        TaskRepository.updateTask(existingTask.id, timeStr)
+                        Toast.makeText(this@MainActivity, "已修改为 $timeStr", Toast.LENGTH_SHORT).show()
+                    } else {
+                        TaskRepository.addTask(timeStr)
+                        Toast.makeText(this@MainActivity, "已添加 $timeStr", Toast.LENGTH_SHORT).show()
+                    }
+                    refreshTasks()
+                    refreshConfigDisplay()
+                }
+            },
+            calendar.get(java.util.Calendar.HOUR_OF_DAY),
+            calendar.get(java.util.Calendar.MINUTE),
+            true
+        )
+        timePicker.show()
     }
 
     override fun onRequestPermissionsResult(

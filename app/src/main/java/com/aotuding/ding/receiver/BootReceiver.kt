@@ -11,8 +11,10 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             // Auto start keepalive
             context.startService(Intent(context, ForegroundService::class.java))
-            // Optionally auto start scheduler if loop was enabled
-            // TaskScheduler.start(context)
+            // Check if need daily reset and restart scheduler (like original)
+            TaskScheduler.start(context)
+            // Reset if past reset time
+            TaskScheduler.resetDailyTasks(context)
         }
     }
 }

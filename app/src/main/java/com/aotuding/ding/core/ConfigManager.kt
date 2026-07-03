@@ -83,4 +83,12 @@ object ConfigManager {
     fun setResetTime(context: Context, time: String) {
         prefs(context).edit().putString("reset_time", time).apply()
     }
+
+    // Result source like original (0=notification, 1=screenshot)
+    fun getResultSource(context: Context): Int =
+        prefs(context).getInt("result_source", 0)
+
+    fun setResultSource(context: Context, source: Int) {
+        prefs(context).edit().putInt("result_source", source).apply()
+    }
 }

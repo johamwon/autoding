@@ -13,8 +13,11 @@ sealed class Action {
     data class SetResetTime(val time: String) : Action()
     data class SetSkipHoliday(val enabled: Boolean) : Action()
     data class SetNotification(val channel: Int, val webhook: String?) : Action()
+    data class SetResultSource(val source: Int) : Action()
+    object ExportConfig : Action()
 
     object ExecuteTask : Action()
+    object ExecuteTaskImmediate : Action()
     object StopTask : Action()
     object EnableLoop : Action()
     object DisableLoop : Action()

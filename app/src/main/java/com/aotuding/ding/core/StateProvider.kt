@@ -26,8 +26,19 @@ object StateProvider {
         sb.appendLine("电量: ${getBattery(context)}%")
         sb.appendLine("任务状态: ${getTaskStatus()}")
         sb.appendLine("前台应用: ${getForegroundApp(context)}")
+        sb.appendLine("内存使用: ${getMemoryUsage(context)}%")
         sb.appendLine("版本: 1.0.0")
         return sb.toString()
+    }
+
+    private fun getMemoryUsage(context: Context): Int {
+        try {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val mi = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(mi)
+            val used = ((mi.totalMem - mi.availMem) * 100 / mi.totalMem).toInt()
+            return used.coerceIn(0, 100)
+        } catch (e: Exception) { return -1 }
     }
 
     fun getScreenState(context: Context): String {

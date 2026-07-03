@@ -1,5 +1,6 @@
 package com.aotuding.ding.service
 
+import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -11,6 +12,8 @@ import com.aotuding.ding.core.TaskScheduler
 import com.aotuding.ding.core.model.Action
 import com.aotuding.ding.data.repository.TaskRepository
 import com.aotuding.ding.service.CaptureService
+import com.aotuding.ding.service.CountdownService
+import com.aotuding.ding.service.FloatingWindowService
 import com.aotuding.ding.utils.MessageSender
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +47,20 @@ class NotificationMonitorService : NotificationListenerService() {
         val extras = sbn.notification.extras
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
         val title = extras.getString("android.title") ?: ""
+        val fullMessage = "$title $text".trim()
+
+        // Persist for 考勤记录 (like original)
+        scope.launch {
+            try {
+                val dao = com.aotuding.ding.AotuDingApplication.instance.database.notificationDao()
+                dao.insert(com.aotuding.ding.data.db.NotificationEntity(
+                    packageName = pkg,
+                    title = title,
+                    message = text,
+                    postTime = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+                ))
+            } catch (e: Exception) { Log.e("NMS", "Save notif failed", e) }
+        }
 
         // Target app result (e.g. DingTalk success)
         val targetPkg = ConfigManager.getTargetApp(this).packageName
@@ -54,7 +71,12 @@ class NotificationMonitorService : NotificationListenerService() {
                     Constants.FEEDBACK_TITLE_TASK,
                     "打卡结果: $text\n$status"
                 )
-                // Optionally trigger next task
+                // Auto screenshot like original (if result source screenshot or always for demo)
+                if (CaptureService.isActive()) {
+                    val capIntent = Intent(this@NotificationMonitorService, CaptureService::class.java)
+                    startService(capIntent)
+                }
+                // Trigger next like original
                 TaskScheduler.executeNext(this@NotificationMonitorService)
             }
             return
@@ -62,7 +84,7 @@ class NotificationMonitorService : NotificationListenerService() {
 
         // Command messages from QQ/WeChat etc.
         if (pkg in Constants.COMMAND_PACKAGES) {
-            handleCommand(text)
+            handleCommand(fullMessage)  // Use full for better matching
         }
     }
 
@@ -102,6 +124,15 @@ class NotificationMonitorService : NotificationListenerService() {
                         MessageSender.sendFeedback("任务列表", list.ifEmpty { "无任务" })
                     }
 
+                    is Action.ExportConfig -> {
+                        scope.launch {
+                            val tasks = withContext(Dispatchers.IO) { TaskRepository.getAllTasks() }
+                            val targetName = ConfigManager.getTargetApp(this@NotificationMonitorService).name
+                            val configStr = tasks.joinToString("|") { it.time } + ";target=" + targetName
+                            MessageSender.sendFeedback("配置导出", configStr)
+                        }
+                    }
+
                     is Action.SetTarget -> {
                         ConfigManager.setTargetApp(this@NotificationMonitorService, action.target)
                         MessageSender.sendFeedback("配置成功", "目标应用: ${action.target.displayName}")
@@ -131,10 +162,25 @@ class NotificationMonitorService : NotificationListenerService() {
                         action.webhook?.let { ConfigManager.setWebhook(this@NotificationMonitorService, it) }
                         MessageSender.sendFeedback("配置成功", "通知渠道已更新")
                     }
+                    is Action.SetResultSource -> {
+                        ConfigManager.setResultSource(this@NotificationMonitorService, action.source)
+                        MessageSender.sendFeedback("配置成功", "结果来源设为 ${if (action.source == 0) "通知" else "截屏"}")
+                    }
 
                     is Action.ExecuteTask -> {
                         TaskScheduler.start(this@NotificationMonitorService)
                         MessageSender.sendFeedback("指令", "已启动任务执行")
+                    }
+                    is Action.ExecuteTaskImmediate -> {
+                        // Immediate launch (on标原 repo openApplication + floating)
+                        val target = ConfigManager.getTargetApp(this@NotificationMonitorService)
+                        com.aotuding.ding.core.PunchExecutor.launchTargetApp(this@NotificationMonitorService, target)
+                        val countdownIntent = Intent(this@NotificationMonitorService, CountdownService::class.java)
+                        startService(countdownIntent)
+                        // Force floating show
+                        val floatIntent = Intent(this@NotificationMonitorService, FloatingWindowService::class.java)
+                        startService(floatIntent)
+                        MessageSender.sendFeedback("指令", "立即执行打卡 (目标: ${target.displayName}) - 请查看悬浮窗倒计时")
                     }
                     is Action.StopTask -> {
                         TaskScheduler.stop()
@@ -187,8 +233,20 @@ class NotificationMonitorService : NotificationListenerService() {
                         MessageSender.sendFeedback("悬浮窗", s)
                     }
                     is Action.AttendanceRecord -> {
-                        // Could query logs later
-                        MessageSender.sendFeedback("考勤记录", "最近记录请查看日志")
+                        scope.launch {
+                            try {
+                                val dao = com.aotuding.ding.AotuDingApplication.instance.database.notificationDao()
+                                val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+                                val records = dao.getTodayNotifications(today)
+                                val filtered = records.filter { it.message.contains("考勤") || it.message.contains("打卡") }
+                                val recordStr = if (filtered.isNotEmpty()) {
+                                    filtered.joinToString("\n") { "${it.postTime}: ${it.message}" }
+                                } else "无记录"
+                                MessageSender.sendFeedback("考勤记录", recordStr)
+                            } catch (e: Exception) {
+                                MessageSender.sendFeedback("考勤记录", "查询失败: ${e.message}")
+                            }
+                        }
                     }
                     is Action.Unknown -> {
                         MessageSender.sendFeedback("未知指令", action.reason)

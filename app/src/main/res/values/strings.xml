@@ -7,5 +7,5 @@
     <string name="add_task">添加任务</string>
     <string name="status">状态</string>
     <string name="tasks">任务列表</string>
-    <string name="query_via_qq">请通过QQ小号发送指令进行配置</string>
+    <string name="query_via_qq">配置主要通过QQ消息（上方按钮可快速调整）。监听需在系统设置手动开启。</string>
 </resources>

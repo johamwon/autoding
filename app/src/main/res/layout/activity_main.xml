@@ -36,6 +36,87 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/add_task"
+        android:layout_marginBottom="12dp" />
+
+    <!-- 配置区域 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="当前配置（可通过按钮调整，或用QQ消息配置）"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvConfig"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="目标: 钉钉 | 随机: 开(5min) | 超时: 30s | 节假日跳过: 关"
+        android:textSize="14sp"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <Button
+            android:id="@+id/btnSwitchTarget"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="切换目标" />
+
+        <Button
+            android:id="@+id/btnToggleRandom"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="切换随机" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <Button
+            android:id="@+id/btnSetTimeout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="设置超时" />
+
+        <Button
+            android:id="@+id/btnToggleHoliday"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="节假日跳过" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnResultSource"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="切换结果来源 (通知/截屏)"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnManualExecute"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="手动立即执行"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnRequestPerms"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="请求权限 / 检查监听"
         android:layout_marginBottom="24dp" />
 
     <TextView
