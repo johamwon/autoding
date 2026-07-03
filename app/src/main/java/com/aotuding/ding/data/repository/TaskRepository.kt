@@ -7,7 +7,7 @@ import kotlinx.coroutines.withContext
 
 object TaskRepository {
 
-    private val dao = AotuDingApplication.instance.database.taskDao()
+    private val dao by lazy { AotuDingApplication.instance.database.taskDao() }
 
     suspend fun getAllTasks(): List<TaskEntity> = withContext(Dispatchers.IO) {
         dao.getAllTasks()

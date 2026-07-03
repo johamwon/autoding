@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.aotuding.ding.R
 import com.aotuding.ding.core.ConfigManager
@@ -74,7 +75,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startServices() {
-        startService(Intent(this, ForegroundService::class.java))
+        // Use startForegroundService for foreground services (required on API 26+)
+        ContextCompat.startForegroundService(this, Intent(this, ForegroundService::class.java))
         // Notification listener is started by system when permission granted
     }
 
